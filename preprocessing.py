@@ -1,104 +1,107 @@
-"""Playing with thee tutorial code. To delete later."""
+"""read data, create vocab, and preprocess"""
 import unicodedata
-import re
+import regex as re
 
+SOS = 0
+EOS = 1
 
-SOS_token = 0
-EOS_token = 1
+SOS_TOKEN = "<s>"
+EOS_TOKEN = "</s>"
+UNK_TOKEN = "<unk>"
 
+MAX_SENT_LENGTH = 10
+MAX_NUM_SENTS   = 10000
 
-class Lang:
+#todo: tokenization, bpe, iwslt xml format
+#todo: import vocabs (so we don't have to do this every time for the same data) ?
+
+class Vocab:
     def __init__(self, name):
         self.name = name
-        self.word2index = {}
-        self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS"}
-        self.n_words = 2  # Count SOS and EOS
+        self.word2index = {SOS_TOKEN : SOS, EOS_TOKEN : EOS}
+        self.index2word = [SOS_TOKEN, EOS_TOKEN]
+        
+        self.unk_token  = None     #default None, set below after vocab frozen
+        self.vocab_frozen = False  #impt for decoding, where we should not add new vocab
 
-    def addSentence(self, sentence):
-        for word in sentence.split(' '):
-            self.addWord(word)
+    def vocab_size(self):
+        return len(self.index2word)
 
-    def addWord(self, word):
+    # maps words to vocab idx, adds if not already present
+    def convert(self, word):
         if word not in self.word2index:
-            self.word2index[word] = self.n_words
-            self.word2count[word] = 1
-            self.index2word[self.n_words] = word
-            self.n_words += 1
-        else:
-            self.word2count[word] += 1
+            if self.vocab_frozen:
+                assert self.unk_token != None, 'No unk_token set but tried to convert OOV word in frozen vocab'
+                return self.unk_token
+            self.word2index[word] = len(self.index2word)
+            self.index2word.append(word)
+        return self.word2index[word]
+
+    def freeze_vocab(self):
+        self.vocab_frozen = True
+
+    def set_unk(self, unk_word):
+        assert self.vocab_frozen, 'Tried to set unk with vocab not frozen'
+        if unk_word not in self.word2index:
+            self.word2index[unk_word] = len(self.index2word)
+            self.index2word.append(unk_word)
+        self.unk_token = self.word2index[unk_word]
+        
+
+# reads parallel data where format is one sentence per line, filename prefix.lang
+# expectation is file does not have SOS/EOS symbols
+def read_corpus(data_prefix, src_lang, tgt_lang):
+    src_file = data_prefix + "." + src_lang
+    tgt_file = data_prefix + "." + tgt_lang
+
+    src_vocab = Vocab(src_lang)
+    tgt_vocab = Vocab(tgt_lang)
+    
+    print("Reading files...")
+
+    # read file, create vocab, and maps words to idxs
+    src_sents = []
+    with open(src_file, 'r', encoding='utf-8') as f:
+        line = f.readline().strip().split()
+        while line:
+            sent = [ src_vocab.convert(w) for w in line ]
+            src_sents.append([SOS] + sent + [EOS])
+            line = f.readline().strip().split()
+
+    # read file, create vocab, and maps words to idxs
+    tgt_sents = []
+    with open(tgt_file, 'r', encoding='utf-8') as f:
+        line = f.readline().strip().split()
+        while line:
+            sent = [ tgt_vocab.convert(w) for w in line ]
+            tgt_sents.append([SOS] + sent + [EOS])
+            line = f.readline().strip().split()
+
+    if len(src_sents) != len(tgt_sents): raise RuntimeError(f"different number of src and tgt sentences!! {len(src_sents)} != {len(tgt_sents)}")
+
+    src_vocab.freeze_vocab()
+    src_vocab.set_unk(UNK_TOKEN)
+
+    tgt_vocab.freeze_vocab()
+    tgt_vocab.set_unk(UNK_TOKEN)
+
+    return src_vocab, tgt_vocab, list(zip(src_sents, tgt_sents))
 
 
-def unicodeToAscii(s):
-    """Safely convert unicode to ascii."""
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-    )
+def input_reader(data_prefix, src, tgt):
+    src_vocab, tgt_vocab, sents = read_corpus(data_prefix, src, tgt)
+    print("Read %s sentences" % len(sents))
+    sents = filter_sents(sents)
+    print("Filtered to %s sentences" % len(sents))
+
+    print("Vocab sizes: %s %d, %s %d" % (src_vocab.name, src_vocab.vocab_size(), tgt_vocab.name, tgt_vocab.vocab_size()))
+    return src_vocab, tgt_vocab, sents
 
 
-def normalizeString(s):
-    """Lowercase, trim, and remove non-alpha chars."""
-    s = unicodeToAscii(s.lower().strip())
-    s = re.sub(r"([.!?])", r" \1", s)
-    s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
-    return s
+#true if sent should not be filtered
+def keep_pair(p):
+    return len(p[0]) < MAX_SENT_LENGTH and len(p[1]) < MAX_SENT_LENGTH
 
-
-def readLangs(lang1, lang2, reverse=False):
-    print("Reading lines...")
-
-    # Read the file and split into lines
-    lines = open('data/tut_data.txt', encoding='utf-8').\
-        read().strip().split('\n')
-
-    # Split every line into pairs and normalize
-    pairs = [[normalizeString(s) for s in l.split('\t')] for l in lines]
-
-    # Reverse pairs, make Lang instances
-    if reverse:
-        pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
-    else:
-        input_lang = Lang(lang1)
-        output_lang = Lang(lang2)
-
-    return input_lang, output_lang, pairs
-
-
-MAX_LENGTH = 10
-
-eng_prefixes = (
-    "i am ", "i m ",
-    "he is", "he s ",
-    "she is", "she s",
-    "you are", "you re ",
-    "we are", "we re ",
-    "they are", "they re "
-)
-
-
-def filterPair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and \
-        len(p[1].split(' ')) < MAX_LENGTH and \
-        p[1].startswith(eng_prefixes)
-
-
-def filterPairs(pairs):
-    return [pair for pair in pairs if filterPair(pair)]
-
-
-def prepareData(lang1, lang2, reverse=False):
-    input_lang, output_lang, pairs = readLangs(lang1, lang2, reverse)
-    print("Read %s sentence pairs" % len(pairs))
-    pairs = filterPairs(pairs)
-    print("Trimmed to %s sentence pairs" % len(pairs))
-    print("Counting words...")
-    for pair in pairs:
-        input_lang.addSentence(pair[0])
-        output_lang.addSentence(pair[1])
-    print("Counted words:")
-    print(input_lang.name, input_lang.n_words)
-    print(output_lang.name, output_lang.n_words)
-    return input_lang, output_lang, pairs
+#return sents filtered by max sent length, max num sents
+def filter_sents(sents):
+    return [pair for pair in sents[:MAX_NUM_SENTS] if keep_pair(pair)]

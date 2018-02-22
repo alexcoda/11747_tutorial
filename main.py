@@ -2,36 +2,42 @@
 import argparse
 import random
 
-# Local imports
-from preprocessing import prepareData
-from neuralnet import Encoder, Decoder, AttnDecoder
-from training import Trainer
+#local imports
+from preprocessing import input_reader
+from encdec import RNNEncoder, RNNDecoder
+from training import train_setup
 from utils import use_cuda
-# from scoring import score
-
 
 
 def main():
-    print("Use CUDA: {}".format(use_cuda))
+    print("Use CUDA: {}".format(use_cuda))  #currently always false
 
-    input_lang, output_lang, pairs = prepareData('eng', 'fra', True)
-    print(random.choice(pairs))
+    src_lang = 'en'
+    tgt_lang = 'de'
+    data_prefix = 'data/examples/debug'
+    
+    src_vocab, tgt_vocab, train_sents = input_reader(data_prefix, src_lang, tgt_lang)
 
     hidden_size = 64
-    enc = Encoder(input_lang.n_words, hidden_size)
-    dec = Decoder(output_lang.n_words, hidden_size)
+    input_size  = src_vocab.vocab_size()
+    output_size = tgt_vocab.vocab_size()
+
+    #-------------------------------------
+
+    enc = RNNEncoder(input_size, hidden_size)
+    dec = RNNDecoder(output_size, hidden_size)
     if use_cuda:
         enc = enc.cuda()
-        dec = dec.cuda()    
+        dec = dec.cuda()
 
-    trainer = Trainer(input_lang, output_lang, pairs)
-    trainer.trainIters(enc, dec, n_iters=1000, print_every=25)
+    train_setup(enc, dec, train_sents, num_iters=1000, print_every=25)    
 
-    enc.save('enc.pkl')
-    dec.save('dec.pkl')
+#    enc.save('enc.pkl')
+#    dec.save('dec.pkl')
 
     pass
 
 
 if __name__ == "__main__":
     main()
+

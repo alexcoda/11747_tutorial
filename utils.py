@@ -8,50 +8,38 @@ import math
 import torch
 from torch.autograd import Variable
 
-# Local imports
-from preprocessing import EOS_token, SOS_token
-
 use_cuda = False #torch.cuda.is_available()
 
-def asMinutes(s):
+
+def pair2var(sent_pair):
+    src_variable = Variable(torch.LongTensor(sent_pair[0])).view(-1,1)
+    tgt_variable = Variable(torch.LongTensor(sent_pair[1])).view(-1,1)
+    if use_cuda:
+        return (src_variable.cuda(), tgt_variable.cuda())
+    else:
+        return (src_variable, tgt_variable)
+
+
+def min_sec(s):
     m = math.floor(s / 60)
     s -= m * 60
     return '%dm %ds' % (m, s)
 
 
-def timeSince(since, percent):
+def time_elapsed(start, percent):
     now = time.time()
-    s = now - since
+    s = now - start
     es = s / (percent)
     rs = es - s
-    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
+    return '%s (est. remaining: %s)' % (min_sec(s), min_sec(rs))
 
 
-def showPlot(points):
+def save_plot(points):
     plt.figure()
     fig, ax = plt.subplots()
-    # this locator puts ticks at regular intervals
+    # puts ticks at regular intervals
     loc = ticker.MultipleLocator(base=0.2)
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
     plt.savefig('loss_plot.jpg')
 
-
-def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
-
-
-def variableFromSentence(lang, sentence):
-    indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS_token)
-    result = Variable(torch.LongTensor(indexes).view(-1, 1))
-    if use_cuda:
-        return result.cuda()
-    else:
-        return result
-
-
-def variablesFromPair(input_lang, output_lang, pair):
-    input_variable = variableFromSentence(input_lang, pair[0])
-    target_variable = variableFromSentence(output_lang, pair[1])
-    return (input_variable, target_variable)
