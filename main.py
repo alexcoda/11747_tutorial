@@ -24,8 +24,8 @@ def main():
 
     #-------------------------------------
 
-    enc = RNNEncoder(input_size, hidden_size)
-    dec = RNNDecoder(output_size, hidden_size)
+    enc = RNNEncoder(input_size, hidden_size, hidden_size)
+    dec = RNNDecoder(output_size, hidden_size, hidden_size)
     if use_cuda:
         enc = enc.cuda()
         dec = dec.cuda()

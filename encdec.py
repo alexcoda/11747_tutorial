@@ -11,25 +11,27 @@ from utils import use_cuda
 
 class RNNEncoder(nn.Module):
     """simple initial encoder"""
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, vocab_size, embed_size, hidden_size):
         super(RNNEncoder, self).__init__()
-        self.input_size  = input_size  #source vocab size
+        self.vocab_size  = vocab_size  #source vocab size
         self.hidden_size = hidden_size
-        self.embeddings  = nn.Embedding(input_size, hidden_size) #embedding dim = hidden_size
+        self.embedding   = nn.Embedding(vocab_size, embed_size) #input_size = embedding dim = hidden_size
         self.rnn = nn.GRU(hidden_size, hidden_size)
+        self.hidden = self.init_hidden()
 
     #src is currently single sentence
-    def forward(self, src, hidden):
-        embedded = self.embeddings(src).view(1, 1, -1)
-        output, hidden = self.rnn(embedded, hidden)
-        return output, hidden
+    def forward(self, src):
+        embedded = self.embedding(src)
+        output, self.hidden = self.rnn(embedded.view(len(src), 1, -1), self.hidden)
+        return output, self.hidden
 
     def init_hidden(self):
+        #dimensions: num_layers, minibatch_size, hidden_dim
         result = Variable(torch.zeros(1, 1, self.hidden_size))
         if use_cuda:
-            return result.cuda()
+            self.hidden = result.cuda()
         else:
-            return result
+            self.hidden = result
 
     def save(self, fname):
         """Save the model to a pickle file."""
@@ -39,14 +41,15 @@ class RNNEncoder(nn.Module):
 
 class RNNDecoder(nn.Module):
     """simple initial decoder"""
-    def __init__(self, output_size, hidden_size):
+    def __init__(self, vocab_size, embed_size, hidden_size):
         super(RNNDecoder, self).__init__()
-        self.output_size = output_size  #target vocab size
+        self.vocab_size = vocab_size  #target vocab size
         self.hidden_size = hidden_size
-        self.embedding   = nn.Embedding(output_size, hidden_size)
+        self.embedding   = nn.Embedding(vocab_size, embed_size)
         self.rnn = nn.GRU(hidden_size, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.out = nn.Linear(hidden_size, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
+        self.hidden = self.init_hidden()
 
     def forward(self, input, hidden):
         output = self.embedding(input).view(1, 1, -1)
@@ -56,6 +59,7 @@ class RNNDecoder(nn.Module):
         return output, hidden
 
     def init_hidden(self):
+        #dimensions: num_layers, minibatch_size, hidden_dim
         result = Variable(torch.zeros(1, 1, self.hidden_size))
         if use_cuda:
             return result.cuda()

@@ -16,28 +16,20 @@ MAX_SENT_LENGTH = 10   #todo: with minibatching, max_length will be set per batc
 def train(src, tgt, encoder, decoder,
           encoder_optimizer, decoder_optimizer, loss_fn,
           max_length=MAX_SENT_LENGTH):
-    encoder_hidden = encoder.init_hidden()
 
+    encoder.hidden = encoder.init_hidden()
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
+    loss = 0
 
     src_length = src.size()[0]
     tgt_length = tgt.size()[0]
 
     encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-
-    loss = 0
-
-    for ei in range(src_length):
-        encoder_output, encoder_hidden = encoder(
-            src[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0][0]
-
-    decoder_input = Variable(torch.LongTensor([[SOS]]))
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-    decoder_hidden = encoder_hidden
+    encoder_outputs = encoder(src)
+    decoder_input  = Variable(torch.LongTensor([[SOS]]))
+    decoder_input  = decoder_input.cuda() if use_cuda else decoder_input
+    decoder_hidden = encoder.hidden
     
     # using prediction as input to next time step
     for di in range(tgt_length):
