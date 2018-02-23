@@ -22,29 +22,17 @@ def train(src, tgt, encoder, decoder,
     decoder_optimizer.zero_grad()
     loss = 0
 
-    src_length = src.size()[0]
     tgt_length = tgt.size()[0]
 
     encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
     encoder_outputs = encoder(src)
-    decoder_input  = Variable(torch.LongTensor([[SOS]]))
-    decoder_input  = decoder_input.cuda() if use_cuda else decoder_input
-    decoder_hidden = encoder.hidden
-    
-    # using prediction as input to next time step
-    for di in range(tgt_length):
-        decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]
+    decoder.hidden = encoder.hidden
+    decoder_output = decoder(tgt)
 
-        decoder_input = Variable(torch.LongTensor([[ni]]))
-        decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+    for gen, ref in zip(decoder_output, tgt):
+        loss += loss_fn(gen, ref)
 
-        loss += loss_fn(decoder_output, tgt[di])
-        if ni == EOS:
-            break
-
-    #todo: teacher forcing, lecture 2/20 re loss fns. pre-train with teacher forcing, finalize using own predictions
+    #todo: lecture 2/20 re loss fns. pre-train with teacher forcing, finalize using own predictions
 
     loss.backward()
 
@@ -94,6 +82,7 @@ def train_setup(encoder, decoder, sents, num_iters, learning_rate=0.01,
             plot_loss_avg = plot_loss_total / plot_every
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
+
 
 #    #todo: generate translations for test sentences here
 #    sentences = []

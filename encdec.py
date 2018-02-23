@@ -48,15 +48,17 @@ class RNNDecoder(nn.Module):
         self.embedding   = nn.Embedding(vocab_size, embed_size)
         self.rnn = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, vocab_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=2)  #dim corresponding to vocab
         self.hidden = self.init_hidden()
 
-    def forward(self, input, hidden):
-        output = self.embedding(input).view(1, 1, -1)
+    def forward(self, tgt):
+        #teacher forcing: use target as next input
+        output = self.embedding(tgt).view(len(tgt), 1, -1)
         output = F.relu(output)
-        output, hidden = self.rnn(output, hidden)
-        output = self.softmax(self.out(output[0]))
-        return output, hidden
+        output, self.hidden = self.rnn(output, self.hidden)
+        intermediate = self.out(output)  #maps to len(sent) x 1 x vocab_size
+        output = self.softmax(intermediate) #softmax across vocab per word
+        return output
 
     def init_hidden(self):
         #dimensions: num_layers, minibatch_size, hidden_dim
@@ -80,10 +82,10 @@ class EncDec(nn.Module):
         self.decoder = decoder
 
     #src,tgt currently single sentences
-    def forward(self, src, tgt, lengths, dec_state=None):
-        encoder_outputs, encoder_hidden = self.encoder(src)
-        output = self.decoder(tgt, encoder_hidden, encoder_outputs)
-        return decoder_outputs
+    def forward(self, src, tgt):
+        encoder_outputs = self.encoder(src)
+        output = self.decoder(tgt, encoder.hidden, encoder_outputs)
+        return output
 
     def save(self, fname):
         """Save the model to a pickle file."""
