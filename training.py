@@ -11,9 +11,7 @@ from utils import time_elapsed, save_plot, use_cuda, pair2var
 from preprocessing import SOS, EOS
 
 
-MAX_SENT_LENGTH = 10   #todo: with minibatching, max_length will be set per batch as len(longest sent in batch)
-
-def train(src, tgt, model, optimizer, loss_fn, max_length=MAX_SENT_LENGTH):
+def train(src, tgt, model, optimizer, loss_fn, max_length):
 
     optimizer.zero_grad()
     loss = 0.0
@@ -47,16 +45,19 @@ def train_setup(model, sents, num_epochs, learning_rate=0.01,
     train_sents = [ pair2var(s) for s in sents ]
     loss_fn = nn.NLLLoss()
 
-    num_batches = len(sents)  #todo: currently batch_size=1 sentence
+    num_batches = len(sents)  #todo: currently batch_size=1 every sentence is a batch
 
     print("Starting training:")
     for ep in range(num_epochs):
         print("Epoch %d:" % ep)
+        random.shuffle(sents)
+        
         for iteration in range(len(sents)):
             src_sent = train_sents[iteration][0]
             tgt_sent = train_sents[iteration][1]
-    
-            loss = train(src_sent, tgt_sent, model, optimizer, loss_fn) #todo: max_length=batch_size
+
+            batch_length = src_sent.size()[0]  #size of longest src sent in batch
+            loss = train(src_sent, tgt_sent, model, optimizer, loss_fn, max_length=batch_length)
             print_loss_total += loss
             plot_loss_total  += loss
     
