@@ -24,13 +24,13 @@ def main():
 
     #-------------------------------------
 
-    enc = RNNEncoder(input_size, hidden_size, hidden_size)
-    dec = RNNDecoder(output_size, hidden_size, hidden_size)
+    enc = RNNEncoder(vocab_size=input_size, embed_size=hidden_size, hidden_size=hidden_size, rnn_type='LSTM', num_layers=1, bidirectional=False)
+    dec = RNNDecoder(vocab_size=output_size, embed_size=hidden_size, hidden_size=hidden_size, rnn_type='LSTM', num_layers=1, bidirectional=False)
     if use_cuda:
         enc = enc.cuda()
         dec = dec.cuda()
 
-    train_setup(enc, dec, train_sents, num_iters=1000, print_every=25)    
+    train_setup(enc, dec, train_sents, num_epochs=30, print_every=1)
 
 #    enc.save('enc.pkl')
 #    dec.save('dec.pkl')
@@ -40,4 +40,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

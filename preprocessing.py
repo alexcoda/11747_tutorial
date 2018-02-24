@@ -18,34 +18,34 @@ MAX_NUM_SENTS   = 10000
 class Vocab:
     def __init__(self, name):
         self.name = name
-        self.word2index = {SOS_TOKEN : SOS, EOS_TOKEN : EOS}
-        self.index2word = [SOS_TOKEN, EOS_TOKEN]
+        self.word2idx = {SOS_TOKEN : SOS, EOS_TOKEN : EOS}
+        self.idx2word = [SOS_TOKEN, EOS_TOKEN]
         
         self.unk_token  = None     #default None, set below after vocab frozen
         self.vocab_frozen = False  #impt for decoding, where we should not add new vocab
 
     def vocab_size(self):
-        return len(self.index2word)
+        return len(self.idx2word)
 
     # maps words to vocab idx, adds if not already present
-    def convert(self, word):
-        if word not in self.word2index:
+    def map2idx(self, word):
+        if word not in self.word2idx:
             if self.vocab_frozen:
-                assert self.unk_token != None, 'No unk_token set but tried to convert OOV word in frozen vocab'
+                assert self.unk_token != None, 'No unk_token set but tried to map OOV word to idx with frozen vocab'
                 return self.unk_token
-            self.word2index[word] = len(self.index2word)
-            self.index2word.append(word)
-        return self.word2index[word]
+            self.word2idx[word] = len(self.idx2word)
+            self.idx2word.append(word)
+        return self.word2idx[word]
 
     def freeze_vocab(self):
         self.vocab_frozen = True
 
     def set_unk(self, unk_word):
         assert self.vocab_frozen, 'Tried to set unk with vocab not frozen'
-        if unk_word not in self.word2index:
-            self.word2index[unk_word] = len(self.index2word)
-            self.index2word.append(unk_word)
-        self.unk_token = self.word2index[unk_word]
+        if unk_word not in self.word2idx:
+            self.word2idx[unk_word] = len(self.idx2word)
+            self.idx2word.append(unk_word)
+        self.unk_token = self.word2idx[unk_word]
         
 
 # reads parallel data where format is one sentence per line, filename prefix.lang
@@ -64,7 +64,7 @@ def read_corpus(data_prefix, src_lang, tgt_lang):
     with open(src_file, 'r', encoding='utf-8') as f:
         line = f.readline().strip().split()
         while line:
-            sent = [ src_vocab.convert(w) for w in line ]
+            sent = [ src_vocab.map2idx(w) for w in line ]
             src_sents.append([SOS] + sent + [EOS])
             line = f.readline().strip().split()
 
@@ -73,7 +73,7 @@ def read_corpus(data_prefix, src_lang, tgt_lang):
     with open(tgt_file, 'r', encoding='utf-8') as f:
         line = f.readline().strip().split()
         while line:
-            sent = [ tgt_vocab.convert(w) for w in line ]
+            sent = [ tgt_vocab.map2idx(w) for w in line ]
             tgt_sents.append([SOS] + sent + [EOS])
             line = f.readline().strip().split()
 

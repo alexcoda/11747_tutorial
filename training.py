@@ -20,7 +20,7 @@ def train(src, tgt, encoder, decoder,
     encoder.hidden = encoder.init_hidden()
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-    loss = 0
+    loss = 0.0
 
     tgt_length = tgt.size()[0]
 
@@ -43,10 +43,10 @@ def train(src, tgt, encoder, decoder,
 
 
 #todo: generation
-#    def generate():
+#def generate():
 
 
-def train_setup(encoder, decoder, sents, num_iters, learning_rate=0.01,
+def train_setup(encoder, decoder, sents, num_epochs, learning_rate=0.01,
                 print_every=1000, plot_every=100):
     start = time.time()
     plot_losses = []
@@ -55,34 +55,38 @@ def train_setup(encoder, decoder, sents, num_iters, learning_rate=0.01,
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    train_sents = [ pair2var(random.choice(sents)) for i in range(num_iters)]
+    train_sents = [ pair2var(s) for s in sents ]
     loss_fn = nn.NLLLoss()
 
+    num_batches = len(sents)  #todo: currently batch_size=1 sentence
+
     print("Starting training:")
-    for iteration in range(num_iters):
-        src_sent = train_sents[iteration][0]
-        tgt_sent = train_sents[iteration][1]
-
-        loss = train(src_sent, tgt_sent, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer,
-                     loss_fn)
-        print_loss_total += loss
-        plot_loss_total  += loss
-
-        #todo: evaluate function. every X iterations here calculate dev ppl, bleu every epoch at least
-
-        # log
-        if iteration % print_every == 0 and iteration > 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('iter %d / %d: %s  %.4f' % (iteration, num_iters, time_elapsed(start, iteration / num_iters), print_loss_avg))
-
-        # append losses for plot
-        if iteration % plot_every == 0 and iteration > 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
-
+    for ep in range(num_epochs):
+        print("Epoch %d:" % ep)
+        for iteration in range(len(sents)):
+            src_sent = train_sents[iteration][0]
+            tgt_sent = train_sents[iteration][1]
+    
+            loss = train(src_sent, tgt_sent, encoder,
+                         decoder, encoder_optimizer, decoder_optimizer,
+                         loss_fn)
+            print_loss_total += loss
+            plot_loss_total  += loss
+    
+            #todo: evaluate function. every X iterations here calculate dev ppl, bleu every epoch at least
+            
+            # log
+            if iteration % print_every == 0 and iteration > 0:
+                print_loss_avg = print_loss_total / print_every
+                print_loss_total = 0
+                print('iter %d / %d: %s  %.4f' % (iteration, num_batches, time_elapsed(start, iteration / num_batches), print_loss_avg))
+    
+            # append losses for plot
+            if iteration % plot_every == 0 and iteration > 0:
+                plot_loss_avg = plot_loss_total / plot_every
+                plot_losses.append(plot_loss_avg)
+                plot_loss_total = 0
+    
 
 #    #todo: generate translations for test sentences here
 #    sentences = []
