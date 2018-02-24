@@ -86,9 +86,13 @@ class EncDec(nn.Module):
         self.decoder = decoder
 
     #src,tgt currently single sentences
-    def forward(self, src, tgt):
-        encoder_outputs = self.encoder(src)
-        output = self.decoder(tgt, encoder.hidden, encoder_outputs)
+    def forward(self, src, tgt, batch_len):
+        self.encoder.hidden = self.encoder.init_hidden()
+        encoder_output = Variable(torch.zeros(batch_len, self.encoder.hidden_size))
+        encoder_output = self.encoder(src)
+        self.decoder.hidden = self.encoder.hidden
+        output = self.decoder(tgt)
+        
         return output
 
     def save(self, fname):

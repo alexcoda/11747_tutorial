@@ -13,31 +13,21 @@ from preprocessing import SOS, EOS
 
 MAX_SENT_LENGTH = 10   #todo: with minibatching, max_length will be set per batch as len(longest sent in batch)
 
-def train(src, tgt, encoder, decoder,
-          encoder_optimizer, decoder_optimizer, loss_fn,
-          max_length=MAX_SENT_LENGTH):
+def train(src, tgt, model, optimizer, loss_fn, max_length=MAX_SENT_LENGTH):
 
-    encoder.hidden = encoder.init_hidden()
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
+    optimizer.zero_grad()
     loss = 0.0
-
     tgt_length = tgt.size()[0]
 
-    encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-    encoder_outputs = encoder(src)
-    decoder.hidden = encoder.hidden
-    decoder_output = decoder(tgt)
-
+    decoder_output = model(src, tgt, max_length)
+    
     for gen, ref in zip(decoder_output, tgt):
         loss += loss_fn(gen, ref)
 
     #todo: lecture 2/20 re loss fns. pre-train with teacher forcing, finalize using own predictions
 
     loss.backward()
-
-    encoder_optimizer.step()
-    decoder_optimizer.step()
+    optimizer.step()
 
     return loss.data[0] / tgt_length
 
@@ -46,15 +36,14 @@ def train(src, tgt, encoder, decoder,
 #def generate():
 
 
-def train_setup(encoder, decoder, sents, num_epochs, learning_rate=0.01,
+def train_setup(model, sents, num_epochs, learning_rate=0.01,
                 print_every=1000, plot_every=100):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  #resets every print_every
     plot_loss_total  = 0  #resets every plot_every
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     train_sents = [ pair2var(s) for s in sents ]
     loss_fn = nn.NLLLoss()
 
@@ -67,9 +56,7 @@ def train_setup(encoder, decoder, sents, num_epochs, learning_rate=0.01,
             src_sent = train_sents[iteration][0]
             tgt_sent = train_sents[iteration][1]
     
-            loss = train(src_sent, tgt_sent, encoder,
-                         decoder, encoder_optimizer, decoder_optimizer,
-                         loss_fn)
+            loss = train(src_sent, tgt_sent, model, optimizer, loss_fn) #todo: max_length=batch_size
             print_loss_total += loss
             plot_loss_total  += loss
     
